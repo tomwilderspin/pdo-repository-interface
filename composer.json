@@ -1,0 +1,23 @@
+{
+    "name": "tomwilderspin/reel-2-reel",
+    "description": "a zencoder integration",
+    "require": {
+        "doctrine/dbal": "2.5"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "~4.5",
+        "mockery/mockery": "~0.9"
+    },
+    "autoload": {
+        "psr-4": {
+            "Test\\":"tests/",
+            "":"src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "tomwilderspin",
+            "email": "tomwilderspin@gmail.com"
+        }
+    ]
+}
