@@ -8,7 +8,7 @@ SCRIPT_HOME="$( cd "$( dirname "$0" )" && pwd )"
 
 cd $SCRIPT_HOME/..
 
-sqlScriptLocation = "/databases/"
+
 
 case "$1" in
 	start)

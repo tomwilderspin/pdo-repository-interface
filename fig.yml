@@ -26,4 +26,3 @@ mysqlClient:
       - mysqld:mysql
     volumes:
       - ./resources/mysql/databases:/databases
-    command: sh -c 'chmod -R 777 /databases &&  exec mysql -hmysql -P3306 -uroot -padminuser < /databases/init.sql'
