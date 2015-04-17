@@ -9,6 +9,6 @@ namespace PdoDoctrine\Repository;
 interface RepositoryInterface {
 
 
-    public function getProductById($id);
+    public function getById($id);
 
 }

@@ -6,10 +6,12 @@
 namespace PdoDoctrine\Repository;
 
 
-use AtlasCreativeIntegration\Entity\EntityInterface;
+use Doctrine\DBAL\Driver\Statement;
+use Doctrine\DBAL\Query\QueryBuilder;
+use PdoDoctrine\DataStructure\QueryStructure;
+use PdoDoctrine\Entity\EntityInterface;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DBALException;
-use Doctrine\DBAL\Query\Expression\CompositeExpression;
 
 abstract class AbstractRepository implements RepositoryInterface
 {
@@ -19,20 +21,14 @@ abstract class AbstractRepository implements RepositoryInterface
      */
     private $connection;
 
-    /**
-     * @var array
-     */
-    private $resourceMap;
-
-    public function __construct(Connection $connection, Array $resourceMap)
+    public function __construct(Connection $connection)
     {
         $this->connection = $connection;
-        $this->resourceMap = $resourceMap;
     }
 
-    protected function getConnection()
+    protected function createQueryStructure()
     {
-        return $this->connection;
+
     }
 
     protected function insertSingleEntity(EntityInterface $entity)
@@ -63,226 +59,143 @@ abstract class AbstractRepository implements RepositoryInterface
         return $entity;
     }
 
-    protected function selectEntitiesByMultipleFields(Array $fieldValuePairs)
+    protected function select(QueryStructure $queryStructure)
     {
-        $entities = [];
+        $query = $this->createSelectQuery(
+            $this->connection,
+            $this->createConditionalExpression()
+        );
 
-        $fields = $this->resourceMap['fields'];
+        $resultBuilder = $this->resultBuilder(
+            $this->fieldSetMapper(
+                $queryStructure->getFieldNameMapWithPrimary()
+            )
+        );
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select(array_keys($fields))
-            ->from($this->resourceMap['table']);
-
-        foreach( $fieldValuePairs as $field => $value)
-        {
-            $queryBuilder->andWhere($field.'='.$queryBuilder->createNamedParameter($value));
-        }
+        $results = array();
 
         try {
-            $executedStatement = $queryBuilder->execute();
 
-            $results = $executedStatement->fetchAll(\PDO::FETCH_ASSOC);
+            $results = $resultBuilder($queryStructure->getEntityClass(), $query($queryStructure)->execute()); #io to db
+
         } catch (DBALException $e) {
-            echo $e->getMessage(); #todo again change this to app logging method
+
+            echo $e->getMessage(); #todo change this to app logging method & add select exception handle
         }
 
-        // todo refactor out duplicated code in these select methods
-        if(!empty($results)) {
-            foreach ($results as $rowItem) {
-
-                $entity = new $this->resourceMap['class'];
-
-                array_walk($rowItem,function($value, $key, $fields) use (&$entity) {
-
-                    $setMethod = 'set'.ucwords($fields[$key]);
-
-                    $entity->$setMethod($value);
-
-                }, $fields);
-
-                $entities[] = $entity;
-            }
-        }
-
-        return $entities;
+        return $results;
     }
 
-    protected function selectEntitiesByField($field, $value)
+    protected function update(QueryStructure $queryStructure)
     {
-        $results = [];
-
-        $entities = [];
-
-        $fields = $this->resourceMap['fields'];
-
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select(array_keys($this->resourceMap['fields']))
-            ->from($this->resourceMap['table'])
-            ->where("$field  = ?")
-            ->setParameter(0, $value);
+        $query = $this->createUpdateQuery(
+            $this->connection,
+            $this->createConditionalExpression(),
+            $this->setUpdateFieldsForQuery(
+                $queryStructure->getEntityClass()
+            )
+        );
 
         try {
-            $executedStatement = $queryBuilder->execute();
-
-            $results = $executedStatement->fetchAll(\PDO::FETCH_ASSOC);
+            $query($queryStructure)->execute();
         } catch (DBALException $e) {
-            echo $e->getMessage(); #todo again change this to app logging method
+
+            echo $e->getMessage(); #todo change this to app logging method & add update exception handle
         }
 
-        if(!empty($results)) {
-            foreach ($results as $rowItem) {
-
-                $entity = new $this->resourceMap['class'];
-
-                array_walk($rowItem,function($value, $key, $fields) use (&$entity) {
-
-                    $setMethod = 'set'.ucwords($fields[$key]);
-
-                    $entity->$setMethod($value);
-
-                }, $fields);
-
-                $entities[] = $entity;
-            }
-        }
-
-        return $entities;
+        return true;
     }
 
-    protected function selectEntitiesByCondition(Array $conditions, Array $parameters)
+
+    private function createUpdateQuery(Connection $connection, \Closure $createConditionalExpression, \Closure $setUpdateFieldsForQuery)
     {
+        return function(QueryStructure $queryStructure) use ($connection, $createConditionalExpression, $setUpdateFieldsForQuery) {
 
-        // todo needs a refactor due to duplicated code
-        $results = [];
+            $query = $connection->createQueryBuilder();
 
-        $entities = [];
-
-        $fields = $this->resourceMap['fields'];
-
-        $queryBuilder = $this->connection->createQueryBuilder();
-
-        $expression = $queryBuilder->expr()->andX();
-
-        array_walk($conditions,function($item, $key) use (&$expression, $queryBuilder){
-            $expression->add($queryBuilder->expr()->$key($item,'?'));
-        });
-
-        $queryBuilder
-            ->select(array_keys($this->resourceMap['fields']))
-            ->from($this->resourceMap['table'])
-            ->where($expression)
-            ->setParameters($parameters);
-
-        try {
-            $executedStatement = $queryBuilder->execute();
-
-            $results = $executedStatement->fetchAll(\PDO::FETCH_ASSOC);
-        } catch (DBALException $e) {
-            echo $e->getMessage(); #todo again change this to app logging method
-        }
-
-        if(!empty($results)) {
-            foreach ($results as $rowItem) {
-
-                $entity = new $this->resourceMap['class'];
-
-                array_walk($rowItem,function($value, $key, $fields) use (&$entity) {
-
-                    $setMethod = 'set'.ucwords($fields[$key]);
-
-                    $entity->$setMethod($value);
-
-                }, $fields);
-
-                $entities[] = $entity;
-            }
-        }
-
-        return $entities;
+            return $setUpdateFieldsForQuery($queryStructure->getFieldNameMap(), $query)
+                ->update($queryStructure->getTableName())
+                ->where($createConditionalExpression($queryStructure->getConditionList(),$query));
+        };
     }
 
 
 
-    protected function updateSingleEntity(EntityInterface $entity, Array $conditionFields = [])
+    private function setUpdateFieldsForQuery(EntityInterface $entity)
     {
-        $data = $entity->toArray();
+        $setField = function(Array $fieldMap, QueryBuilder $query) use ($entity, &$setField) {
 
-        $fieldMap = $this->resourceMap['fields'];
-
-        $queryBuilder = $this->connection->createQueryBuilder()->update($this->resourceMap['table']);
-
-        if (!empty($conditionFields)) {
-            foreach($conditionFields as $field) {
-                if (!array_key_exists($fieldMap[$field],$data)) {
-                    throw new \Exception('invalid conditional field: '. $field);
-                }
-
-                $queryBuilder->andWhere($field.'='.$queryBuilder->createNamedParameter($data[$fieldMap[$field]]));
+            $key = key($fieldMap);
+            $method = 'get'.ucwords(array_shift($fieldMap));
+            if(method_exists($entity, $method)) {
+                $query->set($key, $query->createNamedParameter($entity->$method()));
             }
-        } else {
 
-            if (array_key_exists($fieldMap[$this->resourceMap['primary']], $data)) {
+            return empty($fieldMap)?
+                $query :
+                $setField($fieldMap, $query);
+        };
 
-                $value = $data[$fieldMap[$this->resourceMap['primary']]];
-
-                $queryBuilder->where($this->resourceMap['primary'].'='.$queryBuilder->createNamedParameter($value));
-            }
-        }
-
-        foreach ($fieldMap as $key => $value) {
-            if ( in_array($value, array_keys($data))) {
-                if ($key !== $this->resourceMap['primary']) {
-                    $queryBuilder->set($key,$queryBuilder->createNamedParameter($data[$value]));
-                }
-            }
-        }
-
-        try{
-            $queryBuilder->execute();
-        }catch (DBALException $e) {
-            echo $e->getMessage(); #todo change this to app logging method
-            exit();
-        }
-
+        return $setField;
     }
 
-    protected function selectAllEntities()
+    private function resultBuilder(\Closure $mapToFields)
     {
-        $results = [];
-        $entities = [];
+        return function(Statement $statement) use ($mapToFields) {
+            return array_map($mapToFields,$statement->fetchAll(\PDO::FETCH_ASSOC));
+        };
+    }
 
-        $fields = $this->resourceMap['fields'];
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select(array_keys($this->resourceMap['fields']))
-            ->from($this->resourceMap['table']);
+    private function createSelectQuery(Connection $connection, \Closure $createConditionalExpression)
+    {
+        return function (QueryStructure $queryStructure) use ($connection, $createConditionalExpression) {
+            $query = $connection->createQueryBuilder();
+            return $query->select(array_keys($queryStructure->getFieldNameMap()))
+                ->from($queryStructure->getTableName())
+                ->where($createConditionalExpression($queryStructure->getConditionList(), $query));
+        };
+    }
 
-        try {
-            $executedStatement = $queryBuilder->execute();
+    private function createConditionalExpression()
+    {
+        $expressionBuilder = function (Array $conditionList, QueryBuilder $queryBuilder) use (&$expression) {
 
-            $results = $executedStatement->fetchAll(\PDO::FETCH_ASSOC);
-        } catch (DBALException $e) {
-            echo $e->getMessage();
-        }
+            $condition = array_shift($conditionList);
 
-        if(!empty($results)) {
-            foreach ($results as $rowItem) {
+            $queryBuilder = $queryBuilder->expr()->andX()->add(
+                $queryBuilder->expr()->comparison(
+                    $condition['field'],
+                    $condition['operation'],
+                    $queryBuilder->createNamedParameter($condition['value'])
+                )
+            );
+            return empty($conditionList) ?
+                $queryBuilder :
+                $expression($conditionList, $queryBuilder);
+        };
+        return $expressionBuilder;
+    }
 
-                $entity = new $this->resourceMap['class'];
+    private function fieldSetMapper(Array $fieldMap)
+    {
+        $reducer = function(EntityInterface $entity, Array $values) use ($fieldMap, &$reducer) {
 
-                array_walk($rowItem,function($value, $key, $fields) use (&$entity) {
+            $key = key($values);
+            $value = array_shift($values);
 
-                    $setMethod = 'set'.ucwords($fields[$key]);
+            if (array_key_exists($key, $fieldMap)) {
 
-                    $entity->$setMethod($value);
+                $methodName = 'set' . ucwords($fieldMap[$key]);
 
-                }, $fields);
-
-                $entities[] = $entity;
+                $entity->$methodName($value);
             }
-        }
+            return empty($values) ?
+                $entity :
+                $reducer($entity, $values);
+        };
 
-        return $entities;
+        return $reducer;
     }
 
 }
