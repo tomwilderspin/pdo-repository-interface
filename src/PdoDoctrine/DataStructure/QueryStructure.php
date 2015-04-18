@@ -8,14 +8,7 @@ namespace PdoDoctrine\DataStructure;
 
 use PdoDoctrine\Entity\EntityInterface;
 
-class QueryStructure {
-
-    private $entityClass;
-    private $databaseName;
-    private $tableName;
-    private $primaryKeyMap;
-    private $fieldNameMap;
-    private $conditionList;
+class QueryStructure extends \SplDoublyLinkedList {
 
     function __construct(
         EntityInterface $entityClass,
@@ -23,22 +16,67 @@ class QueryStructure {
         $tableName,
         Array $primaryKeyMap = array(),
         Array $fieldNameMap = array(),
-        Array $conditionList = array()
+        Array $conditionList = array(),
+        Array $resultSet = array()
     ) {
-        $this->entityClass = $entityClass;
-        $this->databaseName = $databaseName;
-        $this->tableName = $tableName;
-        $this->primaryKeyMap = $primaryKeyMap;
-        $this->fieldNameMap = $fieldNameMap;
-        $this->conditionList = $conditionList;
+        $structure = array(
+            'entityClass'   => $entityClass,
+            'databaseName'  => $databaseName,
+            'tableName'     => $tableName,
+            'primaryKeyMap' => $primaryKeyMap,
+            'fieldNameMap'  => $fieldNameMap,
+            'conditionList' => $conditionList,
+            'resultSet'     => $resultSet,
+        );
+
+        $this->setIteratorMode(
+            \SplDoublyLinkedList::IT_MODE_LIFO | \SplDoublyLinkedList::IT_MODE_KEEP
+        );
+
+        $this->add(0, $structure);
+        $this->rewind();
     }
 
-    /**
-     * @return array
-     */
-    public function getConditionParametersList()
+    public function resetQueryStructure()
     {
-        return $this->conditionParametersList;
+        if ($this->count() > 1) {
+            $structure = $this->offsetGet(0);
+            $this->push($structure);
+            $this->rewind();
+        }
+    }
+
+    public function addQueryResultSet(Array $resultSet)
+    {
+        $this->mergeIntoList('resultSet', $resultSet);
+
+        return $this;
+    }
+
+    public function addQueryConditions(Array $conditions)
+    {
+        $this->mergeIntoList('conditionList', $conditions);
+
+        return $this;
+    }
+
+    public function addQueryCondition($field, $value, $operation = '=')
+    {
+        $this->mergeIntoList(
+            'conditionList',
+            array(
+                'field'     => $field,
+                'operation' => $operation,
+                'value'     => $value,
+            )
+        );
+
+        return $this;
+    }
+
+    public function getResultSet()
+    {
+        return $this->getItemFromStructure('resultSet');
     }
 
     /**
@@ -46,7 +84,7 @@ class QueryStructure {
      */
     public function getEntityClass()
     {
-        return $this->entityClass;
+        return $this->getItemFromStructure('entityClass');
     }
 
     /**
@@ -54,7 +92,7 @@ class QueryStructure {
      */
     public function getDatabaseName()
     {
-        return $this->databaseName;
+        return $this->getItemFromStructure('databaseName');
     }
 
     /**
@@ -62,7 +100,7 @@ class QueryStructure {
      */
     public function getTableName()
     {
-        return $this->tableName;
+        return $this->getItemFromStructure('tableName');
     }
 
     /**
@@ -70,7 +108,7 @@ class QueryStructure {
      */
     public function getPrimaryKeyMap()
     {
-        return $this->primaryKeyMap;
+        return $this->getItemFromStructure('primaryKeyMap');
     }
 
     /**
@@ -78,7 +116,7 @@ class QueryStructure {
      */
     public function getFieldNameMap()
     {
-        return $this->fieldNameMap;
+        return $this->getItemFromStructure('fieldNameMap');
     }
 
     /**
@@ -86,11 +124,27 @@ class QueryStructure {
      */
     public function getConditionList()
     {
-        return $this->conditionList;
+        return $this->getItemFromStructure('conditionList');
     }
 
     public function getFieldNameMapWithPrimary()
     {
         return array_merge($this->getFieldNameMap(), $this->getPrimaryKeyMap());
+    }
+
+    private function mergeIntoList($itemKey, Array $values)
+    {
+        $structure = array_merge_recursive(
+            $this->current(),
+            array($itemKey => $values)
+        );
+        $this->push($structure);
+        $this->rewind();
+    }
+
+    private function getItemFromStructure($itemKey)
+    {
+        $structure  = $this->current();
+        return $structure[$itemKey];
     }
 }

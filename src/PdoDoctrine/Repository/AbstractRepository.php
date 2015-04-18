@@ -21,14 +21,19 @@ abstract class AbstractRepository implements RepositoryInterface
      */
     private $connection;
 
-    public function __construct(Connection $connection)
+    private $queryStructure;
+
+    public function __construct(Connection $connection, QueryStructure $queryStructure)
     {
         $this->connection = $connection;
+        $this->queryStructure = $queryStructure;
     }
 
-    protected function createQueryStructure()
+    protected function newQueryStructure()
     {
+        $this->queryStructure->resetQueryStructure();
 
+        return $this->queryStructure;
     }
 
     protected function insertSingleEntity(EntityInterface $entity)
@@ -72,18 +77,21 @@ abstract class AbstractRepository implements RepositoryInterface
             )
         );
 
-        $results = array();
-
         try {
 
-            $results = $resultBuilder($queryStructure->getEntityClass(), $query($queryStructure)->execute()); #io to db
+            $queryStructure->addQueryResultSet(
+                $resultBuilder(
+                    $queryStructure->getEntityClass(),
+                    $query($queryStructure)->execute() #io to db
+                )
+            );
 
         } catch (DBALException $e) {
 
             echo $e->getMessage(); #todo change this to app logging method & add select exception handle
         }
 
-        return $results;
+        return $queryStructure;
     }
 
     protected function update(QueryStructure $queryStructure)
@@ -103,7 +111,7 @@ abstract class AbstractRepository implements RepositoryInterface
             echo $e->getMessage(); #todo change this to app logging method & add update exception handle
         }
 
-        return true;
+        return $queryStructure;
     }
 
 
@@ -197,5 +205,4 @@ abstract class AbstractRepository implements RepositoryInterface
 
         return $reducer;
     }
-
 }
