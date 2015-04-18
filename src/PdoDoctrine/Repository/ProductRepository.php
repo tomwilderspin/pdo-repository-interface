@@ -6,7 +6,6 @@
 namespace PdoDoctrine\Repository;
 
 
-use PdoDoctrine\DataStructure\QueryStructure;
 use PdoDoctrine\Entity\EntityInterface;
 
 class ProductRepository extends AbstractRepository {
