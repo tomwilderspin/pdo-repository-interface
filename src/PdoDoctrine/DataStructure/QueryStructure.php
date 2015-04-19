@@ -10,6 +10,7 @@
 namespace PdoDoctrine\DataStructure;
 
 
+use Doctrine\Common\Cache\ArrayCache;
 use PdoDoctrine\Entity\EntityInterface;
 
 class QueryStructure extends \SplDoublyLinkedList {
@@ -50,6 +51,15 @@ class QueryStructure extends \SplDoublyLinkedList {
             $this->push($structure);
             $this->rewind();
         }
+    }
+
+    public function addQueryMetaData($queryString = '')
+    {
+        $this->mergeIntoList('queryMetaData', array(
+            'queryString' => $queryString,
+        ));
+
+        return $this;
     }
 
     public function addQueryResultSet(Array $resultSet)

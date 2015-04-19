@@ -32,7 +32,6 @@ abstract class AbstractRepository implements RepositoryInterface
     protected function newQueryStructure()
     {
         $this->queryStructure->resetQueryStructure();
-
         return $this->queryStructure;
     }
 
@@ -73,14 +72,12 @@ abstract class AbstractRepository implements RepositoryInterface
         );
 
         try {
-
             $queryStructure->addQueryResultSet(
                 $resultBuilder(
                     $queryStructure->getEntityClass(),
                     $query($queryStructure)->execute() #io to db
                 )
             );
-
         } catch (DBALException $e) {
 
             echo $e->getMessage(); #todo change this to app logging method & add select exception handle
@@ -121,7 +118,6 @@ abstract class AbstractRepository implements RepositoryInterface
         };
     }
 
-
     private function createUpdateQuery(Connection $connection, \Closure $createConditionalExpression, \Closure $setFieldsForQuery)
     {
         return function(QueryStructure $queryStructure) use ($connection, $createConditionalExpression, $setFieldsForQuery) {
@@ -133,8 +129,6 @@ abstract class AbstractRepository implements RepositoryInterface
                 ->where($createConditionalExpression($queryStructure->getConditionList(),$query));
         };
     }
-
-
 
     private function setFieldsForQuery(EntityInterface $entity, $setMethod = 'set')
     {
@@ -161,14 +155,12 @@ abstract class AbstractRepository implements RepositoryInterface
         };
     }
 
-
     private function mapToFields(\Closure $fieldSetMapper, EntityInterface $entity)
     {
         return function(Array $row) use ($fieldSetMapper, $entity) {
             return $fieldSetMapper($entity, $row);
         };
     }
-
 
     private function createSelectQuery(Connection $connection, \Closure $createConditionalExpression)
     {
@@ -208,9 +200,7 @@ abstract class AbstractRepository implements RepositoryInterface
             $value = array_shift($values);
 
             if (array_key_exists($key, $fieldMap)) {
-
                 $methodName = 'set' . ucwords($fieldMap[$key]);
-
                 $entity->$methodName($value);
             }
             return empty($values) ?
