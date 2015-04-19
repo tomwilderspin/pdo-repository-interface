@@ -92,9 +92,20 @@ class QueryStructure extends \SplDoublyLinkedList {
         return $this;
     }
 
-    public function addEntityValue($methodName, $value)
+    public function setEntityValue($methodName, $value)
     {
-        //todo finish this off
+        $structure = $this->current();
+        $method = 'set'.ucwords($methodName);
+
+        if (!method_exists($structure['entityObject'], $method)) {
+            //todo add exception
+        }
+        $structure['entityObject']->$method($value);
+
+        $this->push($structure);
+        $this->rewind();
+
+        return $this;
     }
 
     public function getResultSet()
