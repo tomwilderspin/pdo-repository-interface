@@ -10,7 +10,6 @@
 namespace PdoDoctrine\DataStructure;
 
 
-use Doctrine\Common\Cache\ArrayCache;
 use PdoDoctrine\Entity\EntityInterface;
 
 class QueryStructure extends \SplDoublyLinkedList {
