@@ -36,32 +36,24 @@ abstract class AbstractRepository implements RepositoryInterface
         return $this->queryStructure;
     }
 
-    protected function insertSingleEntity(EntityInterface $entity)
+    protected function insert(QueryStructure $queryStructure)
     {
-        $data = $entity->toArray();
+        $query = $this->createInsertQuery(
+            $this->connection,
+            $this->setFieldsForQuery(
+                $this->queryStructure->getEntityClass(),
+                'setValue'
+            )
+        );
 
-        $fieldMap = $this->resourceMap['fields'];
+        try {
+            $query($queryStructure)->execute();
+        } catch (DBALException $e) {
 
-        $insertValues = [];
-
-        foreach ($fieldMap as $key => $value) {
-            if ( in_array($value, array_keys($data))) {
-                $insertValues[$key] = $data[$value];
-            }
+            echo $e->getMessage(); #todo change this to app logging method & add update exception handle
         }
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->insert($this->resourceMap['table'])
-            ->values(array_fill_keys(array_keys($insertValues), '?'))
-            ->setParameters(array_values($insertValues));
-
-        try{
-            $queryBuilder->execute();
-        }catch (DBALException $e) {
-            echo $e->getMessage(); #todo change this to app logging method
-        }
-
-        return $entity;
+        return $queryStructure;
     }
 
     protected function select(QueryStructure $queryStructure)
@@ -72,8 +64,11 @@ abstract class AbstractRepository implements RepositoryInterface
         );
 
         $resultBuilder = $this->resultBuilder(
-            $this->fieldSetMapper(
-                $queryStructure->getFieldNameMapWithPrimary()
+            $this->mapToFields(
+                $this->fieldSetMapper(
+                    $queryStructure->getFieldNameMapWithPrimary()
+                ),
+                $queryStructure->getEntityClass()
             )
         );
 
@@ -99,7 +94,7 @@ abstract class AbstractRepository implements RepositoryInterface
         $query = $this->createUpdateQuery(
             $this->connection,
             $this->createConditionalExpression(),
-            $this->setUpdateFieldsForQuery(
+            $this->setFieldsForQuery(
                 $queryStructure->getEntityClass()
             )
         );
@@ -114,14 +109,26 @@ abstract class AbstractRepository implements RepositoryInterface
         return $queryStructure;
     }
 
-
-    private function createUpdateQuery(Connection $connection, \Closure $createConditionalExpression, \Closure $setUpdateFieldsForQuery)
+    private function createInsertQuery(Connection $connection, \Closure $setFieldsForQuery)
     {
-        return function(QueryStructure $queryStructure) use ($connection, $createConditionalExpression, $setUpdateFieldsForQuery) {
+        // FYI doctrine only allows single row inserts per query. Not normally a performance bottleneck but GTK.
+        return function(QueryStructure $queryStructure) use ($connection, $setFieldsForQuery)
+        {
+            $query = $connection->createQueryBuilder();
+
+            return $setFieldsForQuery($queryStructure->getFieldNameMap(), $query)
+                ->insert($queryStructure->getTableName());
+        };
+    }
+
+
+    private function createUpdateQuery(Connection $connection, \Closure $createConditionalExpression, \Closure $setFieldsForQuery)
+    {
+        return function(QueryStructure $queryStructure) use ($connection, $createConditionalExpression, $setFieldsForQuery) {
 
             $query = $connection->createQueryBuilder();
 
-            return $setUpdateFieldsForQuery($queryStructure->getFieldNameMap(), $query)
+            return $setFieldsForQuery($queryStructure->getFieldNameMap(), $query)
                 ->update($queryStructure->getTableName())
                 ->where($createConditionalExpression($queryStructure->getConditionList(),$query));
         };
@@ -129,14 +136,14 @@ abstract class AbstractRepository implements RepositoryInterface
 
 
 
-    private function setUpdateFieldsForQuery(EntityInterface $entity)
+    private function setFieldsForQuery(EntityInterface $entity, $setMethod = 'set')
     {
-        $setField = function(Array $fieldMap, QueryBuilder $query) use ($entity, &$setField) {
+        $setField = function(Array $fieldMap, QueryBuilder $query) use ($entity, $setMethod, &$setField) {
 
             $key = key($fieldMap);
             $method = 'get'.ucwords(array_shift($fieldMap));
-            if(method_exists($entity, $method)) {
-                $query->set($key, $query->createNamedParameter($entity->$method()));
+            if(method_exists($entity, $method) && !is_null($entity->$method())) {
+                $query->$setMethod($key, $query->createNamedParameter($entity->$method()));
             }
 
             return empty($fieldMap)?
@@ -151,6 +158,14 @@ abstract class AbstractRepository implements RepositoryInterface
     {
         return function(Statement $statement) use ($mapToFields) {
             return array_map($mapToFields,$statement->fetchAll(\PDO::FETCH_ASSOC));
+        };
+    }
+
+
+    private function mapToFields(\Closure $fieldSetMapper, EntityInterface $entity)
+    {
+        return function(Array $row) use ($fieldSetMapper, $entity) {
+            return $fieldSetMapper($entity, $row);
         };
     }
 

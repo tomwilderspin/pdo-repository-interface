@@ -1,6 +1,10 @@
 <?php
 /**
  * QueryStructure.php.
+ *
+ * built as a immutable linked list item so that a full change
+ * history of queries is stored and can be recovered. Useful for
+ * debugging queries if logged or transaction monitoring.
  */
 
 namespace PdoDoctrine\DataStructure;
@@ -11,22 +15,24 @@ use PdoDoctrine\Entity\EntityInterface;
 class QueryStructure extends \SplDoublyLinkedList {
 
     function __construct(
-        EntityInterface $entityClass,
+        EntityInterface $entityObject,
         $databaseName,
         $tableName,
         Array $primaryKeyMap = array(),
         Array $fieldNameMap = array(),
         Array $conditionList = array(),
-        Array $resultSet = array()
+        Array $resultSet = array(),
+        Array $queryMetaData =array()
     ) {
         $structure = array(
-            'entityClass'   => $entityClass,
+            'entityObject'  => $entityObject,
             'databaseName'  => $databaseName,
             'tableName'     => $tableName,
             'primaryKeyMap' => $primaryKeyMap,
             'fieldNameMap'  => $fieldNameMap,
             'conditionList' => $conditionList,
             'resultSet'     => $resultSet,
+            'queryMetaData' => $queryMetaData,
         );
 
         $this->setIteratorMode(
@@ -74,6 +80,23 @@ class QueryStructure extends \SplDoublyLinkedList {
         return $this;
     }
 
+    public function addEntityClass(EntityInterface $entity)
+    {
+        $structure = $this->current();
+
+        $structure['entityObject'] = $entity;
+
+        $this->push($structure);
+        $this->rewind();
+
+        return $this;
+    }
+
+    public function addEntityValue($methodName, $value)
+    {
+        //todo finish this off
+    }
+
     public function getResultSet()
     {
         return $this->getItemFromStructure('resultSet');
@@ -84,7 +107,7 @@ class QueryStructure extends \SplDoublyLinkedList {
      */
     public function getEntityClass()
     {
-        return $this->getItemFromStructure('entityClass');
+        return clone $this->getItemFromStructure('entityObject');
     }
 
     /**
@@ -117,6 +140,14 @@ class QueryStructure extends \SplDoublyLinkedList {
     public function getFieldNameMap()
     {
         return $this->getItemFromStructure('fieldNameMap');
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getQueryMetaData()
+    {
+        return $this->getItemFromStructure('queryMetaData');
     }
 
     /**

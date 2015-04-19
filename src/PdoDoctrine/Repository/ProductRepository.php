@@ -5,7 +5,6 @@
 
 namespace PdoDoctrine\Repository;
 
-
 use PdoDoctrine\Entity\EntityInterface;
 
 class ProductRepository extends AbstractRepository {
