@@ -1,0 +1,3 @@
+LOAD XML LOCAL INFILE 'products_x2.xml'
+INTO TABLE person
+ROWS IDENTIFIED BY 'product';

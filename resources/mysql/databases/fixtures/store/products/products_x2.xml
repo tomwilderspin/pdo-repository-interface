@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<list>
+    <product>
+        <field name="product_sku">12345678901</field>
+        <field name="name">teapot</field>
+        <field name="price">12.50</field>
+        <field name="description">a tea pot</field>
+        <field name="image_reference">some_image/some/teapot.jpg</field>
+        <field name="date_added">143567</field>
+    </product>
+    <product>
+        <field name="product_sku">12345678902</field>
+        <field name="name">mug</field>
+        <field name="price">4.50</field>
+        <field name="description">red mug</field>
+        <field name="image_reference">some_image/some/mug.jpg</field>
+        <field name="date_added">143856</field>
+    </product>
+</list>
