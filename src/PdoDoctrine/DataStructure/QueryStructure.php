@@ -18,11 +18,11 @@ class QueryStructure extends \SplDoublyLinkedList {
         EntityInterface $entityObject,
         $databaseName,
         $tableName,
-        Array $primaryKeyMap = array(),
-        Array $fieldNameMap = array(),
-        Array $conditionList = array(),
-        Array $resultSet = array(),
-        Array $queryMetaData =array()
+        Array $primaryKeyMap = [],
+        Array $fieldNameMap = [],
+        Array $conditionList = [],
+        Array $resultSet = [],
+        Array $queryMetaData = []
     ) {
         $structure = array(
             'entityObject'  => $entityObject,
@@ -54,9 +54,9 @@ class QueryStructure extends \SplDoublyLinkedList {
 
     public function addQueryMetaData($queryString = '')
     {
-        $this->mergeIntoList('queryMetaData', array(
+        $this->mergeIntoList('queryMetaData', [
             'queryString' => $queryString,
-        ));
+        ]);
 
         return $this;
     }
@@ -79,11 +79,11 @@ class QueryStructure extends \SplDoublyLinkedList {
     {
         $this->mergeIntoList(
             'conditionList',
-            array(
+            [
                 'field'     => $field,
                 'operation' => $operation,
                 'value'     => $value,
-            )
+            ]
         );
 
         return $this;
@@ -187,7 +187,7 @@ class QueryStructure extends \SplDoublyLinkedList {
     {
         $structure = array_merge_recursive(
             $this->current(),
-            array($itemKey => $values)
+            [ $itemKey => $values ]
         );
         $this->push($structure);
         $this->rewind();
